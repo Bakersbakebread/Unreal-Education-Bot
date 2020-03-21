@@ -1,9 +1,7 @@
 import discord
 from redbot.core.commands import commands
 from .api import find_and_parse, SearchResult
-from googletrans import Translator
 
-translator = Translator()
 
 class SchoolGate(commands.Cog):
     def __init__(self, bot):
