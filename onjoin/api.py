@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 API_BASE = "http://universities.hipolabs.com"
 API_SEARCH = f"{API_BASE}/search?name="
 
+
 @dataclass()
 class SearchResult:
     state_province: str
@@ -25,12 +26,12 @@ async def _parse_result(results: dict):
     to_return = []
     for d in results:
         r = SearchResult(
-            state_province=d.get('state-province'),
-            country=d.get('country'),
-            name=d.get('name'),
-            alpha_code=d.get('alpha_two_code'),
-            websites=d.get('web_pages'),
-            domains=d.get('domains')
+            state_province=d.get("state-province"),
+            country=d.get("country"),
+            name=d.get("name"),
+            alpha_code=d.get("alpha_two_code"),
+            websites=d.get("web_pages"),
+            domains=d.get("domains"),
         )
         to_return.append(r)
 
@@ -40,4 +41,3 @@ async def _parse_result(results: dict):
 async def find_and_parse(query):
     results = await _search(query)
     return await _parse_result(results)
-

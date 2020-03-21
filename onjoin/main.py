@@ -8,7 +8,9 @@ class SchoolGate(commands.Cog):
         self.bot = bot
         self.guild_id = 690552296983232554
 
-    async def _get_or_create_school_category(self, guild: discord.Guild, school: SearchResult, role: discord.Role) -> discord.CategoryChannel:
+    async def _get_or_create_school_category(
+        self, guild: discord.Guild, school: SearchResult, role: discord.Role
+    ) -> discord.CategoryChannel:
         all_categories = guild.categories
         exists = school.name in [cat.name for cat in all_categories]
         if exists:
@@ -17,7 +19,7 @@ class SchoolGate(commands.Cog):
             overwrites = {
                 guild.default_role: discord.PermissionOverwrite(read_messages=False),
                 guild.me: discord.PermissionOverwrite(read_messages=True),
-                role: discord.PermissionOverwrite(read_messages=True)
+                role: discord.PermissionOverwrite(read_messages=True),
             }
             category = await guild.create_category(name=school.name, overwrites=overwrites)
             await self._fill_category(category)
@@ -42,7 +44,9 @@ class SchoolGate(commands.Cog):
         for channel in range(voice_channels):
             await category.create_voice_channel(name=f"Voice {channel}")
 
-    async def _grant_student_access(self, guild: discord.Guild, student: discord.Member, school: SearchResult):
+    async def _grant_student_access(
+        self, guild: discord.Guild, student: discord.Member, school: SearchResult
+    ):
         role = await self._get_or_create_school_role(guild, school)
         category = await self._get_or_create_school_category(guild, school, role)
 
@@ -55,11 +59,15 @@ class SchoolGate(commands.Cog):
             return await ctx.send(f"🤔 Hmm. Couldn't find any school close to that. Try again.")
         if len(results) == 1:
             match = results[0]
-            await ctx.send(f"Cool. Your school is :flag_{match.alpha_code.lower()}:: {match.name}, {match.country}")
+            await ctx.send(
+                f"Cool. Your school is :flag_{match.alpha_code.lower()}:: {match.name}, {match.country}"
+            )
             await self._grant_student_access(ctx.guild, ctx.author, match)
         else:
-            result_list = '\n'.join('🏫 `{0}`'.format(w.name) for w in results)
-            s = f"Woah. Please narrow down your search results. You can choose from:\n" \
+            result_list = "\n".join("🏫 `{0}`".format(w.name) for w in results)
+            s = (
+                f"Woah. Please narrow down your search results. You can choose from:\n"
                 f"{result_list}"
+            )
             await ctx.send(s)
         print(results)
