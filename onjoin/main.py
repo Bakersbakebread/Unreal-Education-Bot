@@ -1,5 +1,7 @@
 import discord
 from redbot.core.commands import commands
+
+from .utils import yes_or_no
 from .api import find_and_parse, SearchResult
 
 
@@ -54,14 +56,21 @@ class SchoolGate(commands.Cog):
 
     @commands.command(name="se")
     async def _search_for_school(self, ctx, *, school_name: str):
+        author = ctx.author
+        # if author.roles:
+        #     return await ctx.send(f"{author.mention} you're already in a school! Leave that one first.")
         results = await find_and_parse(school_name)
         if len(results) == 0:
             return await ctx.send(f"🤔 Hmm. Couldn't find any school close to that. Try again.")
         if len(results) == 1:
             match = results[0]
-            await ctx.send(
-                f"Cool. Your school is :flag_{match.alpha_code.lower()}:: {match.name}, {match.country}"
-            )
+            is_correct_school = await yes_or_no(ctx,
+                            f"Is your school {match.name}, {match.country} :flag_{match.alpha_code.lower()}:?")
+            if not is_correct_school:
+                return await ctx.send(
+                    "Okay. I haven't assigned you to any school."
+                )
+            await ctx.tick()
             await self._grant_student_access(ctx.guild, ctx.author, match)
         else:
             result_list = "\n".join("🏫 `{0}`".format(w.name) for w in results)
