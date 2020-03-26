@@ -1,14 +1,22 @@
+import asyncio
 import discord
-from redbot.core.commands import commands
 
-from .utils import yes_or_no
-from .api import find_and_parse, SearchResult
+from redbot.core.commands import commands
+from redbot.core import Config
+from .utils import yes_or_no, create_school_options_embed, get_option_reaction, joined_school_log_embed
+from .api import SearchResult, school_fuzzy_search, parse_result
+
+import logging
+log = logging.getLogger("red.unreal.main")
 
 
 class SchoolGate(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.guild_id = 690552296983232554
+        default_guild = {"log_channel": None}
+        self.config = Config.get_conf(self, identifier=690552296983232554)
+        self.config.register_guild(**default_guild)
 
     async def _get_or_create_school_category(
         self, guild: discord.Guild, school: SearchResult, role: discord.Role
@@ -54,29 +62,44 @@ class SchoolGate(commands.Cog):
 
         await student.add_roles(role, reason="Granting access to school")
 
+    async def _send_log_to_channel(self, guild: discord.Guild, student: discord.Member, school: SearchResult):
+        """Sends log to channel if set, else fails silently"""
+        channel = await self.config.guild(guild).log_channel()
+        channel = guild.get_channel(channel)
+        if channel is None:
+            return
+        else:
+            embed = await joined_school_log_embed(student, school.name)
+            await channel.send(embed=embed)
+
     @commands.command(name="se")
     async def _search_for_school(self, ctx, *, school_name: str):
-        author = ctx.author
+        author, guild = ctx.author, ctx.guild
         # if author.roles:
         #     return await ctx.send(f"{author.mention} you're already in a school! Leave that one first.")
-        results = await find_and_parse(school_name)
+        results = await school_fuzzy_search(school_name)
         if len(results) == 0:
             return await ctx.send(f"🤔 Hmm. Couldn't find any school close to that. Try again.")
-        if len(results) == 1:
-            match = results[0]
-            is_correct_school = await yes_or_no(ctx,
-                            f"Is your school {match.name}, {match.country} :flag_{match.alpha_code.lower()}:?")
-            if not is_correct_school:
-                return await ctx.send(
-                    "Okay. I haven't assigned you to any school."
-                )
-            await ctx.tick()
-            await self._grant_student_access(ctx.guild, ctx.author, match)
-        else:
-            result_list = "\n".join("🏫 `{0}`".format(w.name) for w in results)
-            s = (
-                f"Woah. Please narrow down your search results. You can choose from:\n"
-                f"{result_list}"
+
+        options_embed = await create_school_options_embed(results)
+        try:
+            option_chosen = await get_option_reaction(
+            ctx, length=len(results) + 1, embed=options_embed  # we plus 1 here because the enumeration starts at 1
             )
-            await ctx.send(s)
-        print(results)
+            school, probability = results[option_chosen]
+            school_result = await parse_result(school)
+            await self._grant_student_access(guild, author, school_result)
+            await self._send_log_to_channel(guild, author, school_result)
+        except discord.errors.Forbidden as e:
+            log.error(f"Tried granting student access, permissions denied to add roles or embed links")
+        except discord.errors.NotFound as e:
+            log.error(f"Failed to find member to add role {author.id} - {author.name}")
+        except asyncio.exceptions.TimeoutError:
+            return await ctx.send("⏲ You took too long to respond. Try again.")
+
+    @commands.command(name="setlogger")
+    async def _set_logging_channel(self, ctx, channel: discord.TextChannel = None):
+        """Set the channel new joins will be logged"""
+        to_set = channel.id if channel is not None else None
+        await self.config.guild(ctx.guild).log_channel.set(to_set)
+        await ctx.send('👍')
