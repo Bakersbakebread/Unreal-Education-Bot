@@ -37,9 +37,10 @@ async def get_option_reaction(
     on embed or message passed
     """
     if not embed:
+        message = f"{ctx.author.mention} {message}"
         msg = await ctx.send(message, delete_after=30, )
     else:
-        msg = await ctx.send(embed=embed, delete_after=30, )
+        msg = await ctx.send(ctx.author.mention, embed=embed, delete_after=30, )
     emojis = ReactionPredicate.NUMBER_EMOJIS[1:length]
     start_adding_reactions(
         msg, emojis,
@@ -58,3 +59,11 @@ async def joined_school_log_embed(student: discord.Member, school_name: str) -> 
     embed.add_field(name="Student", value=f"{student} - {student.id}")
     embed.add_field(name="School", value=school_name, inline=False)
     return embed
+
+
+async def send_mention(destination, author: discord.Member, message: str = None, embed: discord.Embed = None):
+    """Util to mention the user when sending a message."""
+    if embed is not None:
+        await destination.send(f"{author.mention} {message if message else ''}", embed=embed)
+    else:
+        await destination.send(f"{author.mention} {message}")

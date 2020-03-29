@@ -3,7 +3,7 @@ import discord
 
 from redbot.core.commands import commands
 from redbot.core import Config
-from .utils import yes_or_no, create_school_options_embed, get_option_reaction, joined_school_log_embed
+from .utils import send_mention, create_school_options_embed, get_option_reaction, joined_school_log_embed
 from .api import SearchResult, school_fuzzy_search, parse_result
 
 import logging
@@ -72,14 +72,14 @@ class SchoolGate(commands.Cog):
             embed = await joined_school_log_embed(student, school.name)
             await channel.send(embed=embed)
 
-    @commands.command(name="se")
+    @commands.command(name="search", aliases=['se'])
     async def _search_for_school(self, ctx, *, school_name: str):
         author, guild = ctx.author, ctx.guild
         # if author.roles:
         #     return await ctx.send(f"{author.mention} you're already in a school! Leave that one first.")
         results = await school_fuzzy_search(school_name)
         if len(results) == 0:
-            return await ctx.send(f"🤔 Hmm. Couldn't find any school close to that. Try again.")
+            return await send_mention(ctx, author, f"🤔 Hmm. Couldn't find any school close to that. Try again.")
 
         options_embed = await create_school_options_embed(results)
         try:
@@ -96,6 +96,16 @@ class SchoolGate(commands.Cog):
             log.error(f"Failed to find member to add role {author.id} - {author.name}")
         except asyncio.exceptions.TimeoutError:
             return await ctx.send("⏲ You took too long to respond. Try again.")
+        finally:
+            await ctx.message.delete()
+
+    @commands.command(name="le")
+    async def _leave_school(self, ctx):
+        """Leave your school. """
+        author, categories = ctx.author, ctx.guild.categories
+        for role in author.roles:
+            if role.name.lower() in [n.name.lower() for n in categories]:
+                await author.remove_roles(role, reason="Leaving school requested.")
 
     @commands.command(name="setlogger")
     async def _set_logging_channel(self, ctx, channel: discord.TextChannel = None):
