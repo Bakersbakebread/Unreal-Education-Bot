@@ -72,7 +72,11 @@ class SchoolGate(commands.Cog):
             embed = await joined_school_log_embed(student, school.name)
             await channel.send(embed=embed)
 
-    @commands.command(name="search", aliases=['se'])
+    @commands.group(name="school")
+    async def school_group(self, ctx):
+        pass
+
+    @school_group.command(name="join")
     async def _search_for_school(self, ctx, *, school_name: str):
         author, guild = ctx.author, ctx.guild
         # if author.roles:
@@ -95,11 +99,11 @@ class SchoolGate(commands.Cog):
         except discord.errors.NotFound as e:
             log.error(f"Failed to find member to add role {author.id} - {author.name}")
         except asyncio.exceptions.TimeoutError:
-            return await ctx.send("⏲ You took too long to respond. Try again.")
+            return await ctx.send(f"⏲ {author.mention}, you took too long to respond. Try again.")
         finally:
             await ctx.message.delete()
 
-    @commands.command(name="le")
+    @school_group.command(name="leave")
     async def _leave_school(self, ctx):
         """Leave your school. """
         author, categories = ctx.author, ctx.guild.categories
