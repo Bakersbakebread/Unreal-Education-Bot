@@ -96,7 +96,12 @@ class SchoolGate(commands.Cog):
     async def _search_for_school(self, ctx, *, school_name: str):
         author, guild = ctx.author, ctx.guild
         if author.roles:
-            return await ctx.send(f"{author.mention} you're already in a school! Leave that one first.")
+            categories = [category.name for category in guild.categories]
+            role_names = [role.name for role in author.roles]
+            if len([x for x in role_names if x in categories]):
+                return await ctx.send(f"{author.mention} you're already in a school! Leave that one first.")
+            else:
+                return await ctx.send(author.roles)
         results = await school_fuzzy_search(school_name)
         if len(results) == 0:
             return await send_mention(ctx, author, f"🤔 Hmm. Couldn't find any school close to that. Try again.")
@@ -126,6 +131,7 @@ class SchoolGate(commands.Cog):
         for role in author.roles:
             if role.name.lower() in [n.name.lower() for n in categories]:
                 await author.remove_roles(role, reason="Leaving school requested.")
+        return await ctx.send(f"{author.mention}, you are no longer part of any school.")
 
     @commands.command(name="setlogger")
     async def _set_logging_channel(self, ctx, channel: discord.TextChannel = None):
