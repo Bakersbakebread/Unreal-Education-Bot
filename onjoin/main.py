@@ -17,9 +17,24 @@ class SchoolGate(commands.Cog):
         default_guild = {"log_channel": None}
         self.config = Config.get_conf(self, identifier=690552296983232554)
         self.config.register_guild(**default_guild)
+        self.bot.remove_command("help")
+
+    @commands.command(name="help")
+    async def _replacement_help(self, ctx):
+        embed = discord.Embed(title=f"{ctx.guild.name}", color=discord.Color.blue())
+        embed.description = f"To use these commands, it is pretty self-explanatory.\n" \
+                            f"`[]` **denotes your input is required.**\n\n"
+        embed.description += \
+            (f"`{ctx.prefix}school join [school-name]`\n"
+             "This will fuzzy search a list of known schools for which you can register and gain access to."
+             " If your school is not listed, please mention one of the team who will rectify.\n\n")
+        embed.description += (
+            f"`{ctx.prefix}school leave`\n"
+            "This will leave the school you have been registered with.")
+        await ctx.send(embed=embed)
 
     async def _get_or_create_school_category(
-        self, guild: discord.Guild, school: SearchResult, role: discord.Role
+            self, guild: discord.Guild, school: SearchResult, role: discord.Role
     ) -> discord.CategoryChannel:
         all_categories = guild.categories
         exists = school.name in [cat.name for cat in all_categories]
@@ -55,7 +70,7 @@ class SchoolGate(commands.Cog):
             await category.create_voice_channel(name=f"Voice {channel}")
 
     async def _grant_student_access(
-        self, guild: discord.Guild, student: discord.Member, school: SearchResult
+            self, guild: discord.Guild, student: discord.Member, school: SearchResult
     ):
         role = await self._get_or_create_school_role(guild, school)
         category = await self._get_or_create_school_category(guild, school, role)
@@ -72,15 +87,16 @@ class SchoolGate(commands.Cog):
             embed = await joined_school_log_embed(student, school.name)
             await channel.send(embed=embed)
 
-    @commands.group(name="school")
+    @commands.group(name="school", autohelp=False)
     async def school_group(self, ctx):
-        pass
+        if not ctx.invoked_subcommand:
+            await ctx.invoke(self.bot.get_command("help"))
 
     @school_group.command(name="join")
     async def _search_for_school(self, ctx, *, school_name: str):
         author, guild = ctx.author, ctx.guild
-        # if author.roles:
-        #     return await ctx.send(f"{author.mention} you're already in a school! Leave that one first.")
+        if author.roles:
+            return await ctx.send(f"{author.mention} you're already in a school! Leave that one first.")
         results = await school_fuzzy_search(school_name)
         if len(results) == 0:
             return await send_mention(ctx, author, f"🤔 Hmm. Couldn't find any school close to that. Try again.")
@@ -88,7 +104,7 @@ class SchoolGate(commands.Cog):
         options_embed = await create_school_options_embed(results)
         try:
             option_chosen = await get_option_reaction(
-            ctx, length=len(results) + 1, embed=options_embed  # we plus 1 here because the enumeration starts at 1
+                ctx, length=len(results) + 1, embed=options_embed  # we plus 1 here because the enumeration starts at 1
             )
             school, probability = results[option_chosen]
             school_result = await parse_result(school)
@@ -116,4 +132,4 @@ class SchoolGate(commands.Cog):
         """Set the channel new joins will be logged"""
         to_set = channel.id if channel is not None else None
         await self.config.guild(ctx.guild).log_channel.set(to_set)
-        await ctx.send('👍')
+        await ctx.send(f'👍 {to_set}')
