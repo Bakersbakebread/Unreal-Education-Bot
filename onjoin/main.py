@@ -100,8 +100,6 @@ class SchoolGate(commands.Cog):
             role_names = [role.name for role in author.roles]
             if len([x for x in role_names if x in categories]):
                 return await ctx.send(f"{author.mention} you're already in a school! Leave that one first.")
-            else:
-                return await ctx.send(author.roles)
         results = await school_fuzzy_search(school_name)
         if len(results) == 0:
             return await send_mention(ctx, author, f"🤔 Hmm. Couldn't find any school close to that. Try again.")
