@@ -2,7 +2,9 @@ import asyncio
 import discord
 
 from redbot.core.commands import commands
-from redbot.core import Config
+from redbot.core import Config, checks
+from redbot.core.utils.chat_formatting import box
+
 from .utils import send_mention, create_school_options_embed, get_option_reaction, joined_school_log_embed
 from .api import SearchResult, school_fuzzy_search, parse_result
 
@@ -14,7 +16,7 @@ class SchoolGate(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.guild_id = 690552296983232554
-        default_guild = {"log_channel": None}
+        default_guild = {"log_channel": None, "student_role": None}
         self.config = Config.get_conf(self, identifier=690552296983232554)
         self.config.register_guild(**default_guild)
         self.bot.remove_command("help")
@@ -73,6 +75,11 @@ class SchoolGate(commands.Cog):
             self, guild: discord.Guild, student: discord.Member, school: SearchResult
     ):
         role = await self._get_or_create_school_role(guild, school)
+        student_role = await self.config.guild(guild).student_role()
+        if student_role is not None:
+            student_role = guild.get_role(student_role)
+            if student_role is not None:
+                await student.add_roles(student_role, reason="Granting access to student role")
         category = await self._get_or_create_school_category(guild, school, role)
 
         await student.add_roles(role, reason="Granting access to school")
@@ -131,9 +138,23 @@ class SchoolGate(commands.Cog):
                 await author.remove_roles(role, reason="Leaving school requested.")
         return await ctx.send(f"{author.mention}, you are no longer part of any school.")
 
+    @checks.has_permissions(manage_guild=True)
     @commands.command(name="setlogger")
     async def _set_logging_channel(self, ctx, channel: discord.TextChannel = None):
         """Set the channel new joins will be logged"""
         to_set = channel.id if channel is not None else None
         await self.config.guild(ctx.guild).log_channel.set(to_set)
         await ctx.send(f'👍 {to_set}')
+
+    @checks.has_permissions(manage_guild=True)
+    @commands.command(name="setstudent")
+    async def _set_student_role(self, ctx, role: discord.Role):
+        """Set the student role to grant on access to a school"""
+        await self.config.guild(ctx.guild).student_role.set(role.id)
+        stupid_string = """██████╗  ██████╗ ██╗     ███████╗    ███████╗███████╗████████╗
+██╔══██╗██╔═══██╗██║     ██╔════╝    ██╔════╝██╔════╝╚══██╔══╝
+██████╔╝██║   ██║██║     █████╗      ███████╗█████╗     ██║   
+██╔══██╗██║   ██║██║     ██╔══╝      ╚════██║██╔══╝     ██║   
+██║  ██║╚██████╔╝███████╗███████╗    ███████║███████╗   ██║   
+╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚══════╝    ╚══════╝╚══════╝   ╚═╝"""
+        await ctx.send(box(f"{stupid_string}\n\nSet the role that students will recieve to: {role} - {role.id}"))
