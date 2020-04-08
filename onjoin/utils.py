@@ -48,6 +48,7 @@ async def get_option_reaction(
 
     pred = ReactionPredicate.with_emojis(emojis, msg, ctx.author, )
     react = await ctx.bot.wait_for("reaction_add", check=pred, timeout=30)
+    await msg.delete()
     return pred.result
 
 
@@ -67,3 +68,14 @@ async def send_mention(destination, author: discord.Member, message: str = None,
         await destination.send(f"{author.mention} {message if message else ''}", embed=embed)
     else:
         await destination.send(f"{author.mention} {message}")
+
+
+# from DEV cog, made by Cog Creators (tekulvw)
+def cleanup_code(content):
+    """Automatically removes code blocks from the code."""
+    # remove ```py\n```
+    if content.startswith("```") and content.endswith("```"):
+        return "\n".join(content.split("\n")[1:-1])
+
+    # remove `foo`
+    return content.strip("` \n")
