@@ -26,7 +26,7 @@ class SchoolGate(commands.Cog):
     async def _replacement_help(self, ctx):
         embed = discord.Embed(title=f"{ctx.guild.name}", color=discord.Color.blue())
         embed.description = f"To use these commands, it is pretty self-explanatory.\n" \
-                            f"`[]` **denotes your input is required.**\n\n"
+                            f"`[]` **denotes your input is required. Please don't include them in your query.**\n\n"
         embed.description += \
             (f"`{ctx.prefix}school join [school-name]`\n"
              "This will fuzzy search a list of known schools for which you can register and gain access to."
@@ -103,6 +103,7 @@ class SchoolGate(commands.Cog):
     @school_group.command(name="join")
     async def _search_for_school(self, ctx, *, school_name: str):
         author, guild = ctx.author, ctx.guild
+        school_name = school_name.replace("[", "").replace("]", "")
         if author.roles:
             # role name == category name, so this is their school
             categories = [category.name for category in guild.categories]
@@ -122,6 +123,7 @@ class SchoolGate(commands.Cog):
             school, probability = results[option_chosen]
             await self._grant_student_access(guild, author, school)
             await self._send_log_to_channel(guild, author, school)
+            await ctx.send(f"{author.mention}, welcome! You're now in `{school_name}`.")
         except discord.errors.Forbidden as e:
             log.error(f"Tried granting student access, permissions denied to add roles or embed links")
         except discord.errors.NotFound as e:
@@ -140,16 +142,16 @@ class SchoolGate(commands.Cog):
                 await author.remove_roles(role, reason="Leaving school requested.")
         return await ctx.send(f"{author.mention}, you are no longer part of any school.")
 
-    @checks.has_permissions(manage_guild=True)
     @commands.command(name="setlogger")
+    @checks.mod_or_permissions(manage_messages=True)
     async def _set_logging_channel(self, ctx, channel: discord.TextChannel = None):
         """Set the channel new joins will be logged"""
         to_set = channel.id if channel is not None else None
         await self.config.guild(ctx.guild).log_channel.set(to_set)
         await ctx.send(f'👍 {to_set}')
 
-    @checks.has_permissions(manage_guild=True)
     @commands.command(name="setstudent")
+    @checks.mod_or_permissions(manage_messages=True)
     async def _set_student_role(self, ctx, role: discord.Role):
         """Set the student role to grant on access to a school"""
         await self.config.guild(ctx.guild).student_role.set(role.id)
@@ -161,7 +163,7 @@ class SchoolGate(commands.Cog):
 ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚══════╝    ╚══════╝╚══════╝   ╚═╝"""
         await ctx.send(box(f"{stupid_string}\n\nSet the role that students will recieve to: {role} - {role.id}"))
 
-    @checks.has_permissions(manage_guild=True)
+    @checks.has_permissions(manage_messages=True)
     @commands.command(name="addschool")
     async def _add_custom_school(self, ctx, *, school_name):
         """
@@ -179,8 +181,8 @@ class SchoolGate(commands.Cog):
             custom_choices.append(school_name)
             return await ctx.send(f"{ctx.author.mention}, `{school_name}` has been added to the list.")
 
-    @checks.has_permissions(manage_guild=True)
     @commands.command(name="delschool")
+    @checks.has_permissions(manage_messages=True)
     async def _delete_custom_school(self, ctx, *, school_name):
         """
         Delete a custom school, not from the list of already available.
