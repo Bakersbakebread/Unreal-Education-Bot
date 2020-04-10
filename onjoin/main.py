@@ -163,7 +163,7 @@ class SchoolGate(commands.Cog):
 ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚══════╝    ╚══════╝╚══════╝   ╚═╝"""
         await ctx.send(box(f"{stupid_string}\n\nSet the role that students will recieve to: {role} - {role.id}"))
 
-    @checks.has_permissions(manage_messages=True)
+    @checks.mod_or_permissions(manage_messages=True)
     @commands.command(name="addschool")
     async def _add_custom_school(self, ctx, *, school_name):
         """
@@ -182,7 +182,7 @@ class SchoolGate(commands.Cog):
             return await ctx.send(f"{ctx.author.mention}, `{school_name}` has been added to the list.")
 
     @commands.command(name="delschool")
-    @checks.has_permissions(manage_messages=True)
+    @checks.mod_or_permissions(manage_messages=True)
     async def _delete_custom_school(self, ctx, *, school_name):
         """
         Delete a custom school, not from the list of already available.
