@@ -66,7 +66,7 @@ class SchoolGate(commands.Cog):
 
     async def _fill_category(self, category: discord.CategoryChannel):
         text_channels = ["Classroom"]
-        voice_channels = 5
+        voice_channels = 1
         for channel in text_channels:
             await category.create_text_channel(name=channel)
         for channel in range(voice_channels):
