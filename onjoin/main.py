@@ -138,6 +138,9 @@ class SchoolGate(commands.Cog):
             log.error(f"Failed to find member to add role {author.id} - {author.name}")
         except asyncio.exceptions.TimeoutError:
             return await ctx.send(f"⏲ {author.mention}, you took too long to respond. Try again.")
+        except discord.errors.HTTPException as e:
+            log.error("Max number of roles reached, failing silent - still adding student")
+            pass
         finally:
             await ctx.message.delete()
 
