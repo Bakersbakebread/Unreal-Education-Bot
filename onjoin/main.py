@@ -13,11 +13,15 @@ import json
 log = logging.getLogger("red.unreal.main")
 
 
+class NoStudentsException(Exception):
+    pass
+
+
 class SchoolGate(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.guild_id = 690552296983232554
-        default_guild = {"log_channel": None, "student_role": None, "custom_choices": []}
+        default_guild = {"log_channel": None, "student_role": None, "custom_choices": [], "school_category": None}
         self.config = Config.get_conf(self, identifier=690552296983232554)
         self.config.register_guild(**default_guild)
         self.bot.remove_command("help")
@@ -25,10 +29,9 @@ class SchoolGate(commands.Cog):
     @commands.command(name="help")
     async def _replacement_help(self, ctx):
         embed = discord.Embed(title=f"{ctx.guild.name}", color=discord.Color.blue())
-        embed.description = f"To use these commands, it is pretty self-explanatory.\n" \
-                            f"`[]` **denotes your input is required. Please don't include them in your query.**\n\n"
+        embed.description = f"To use these commands, it is pretty self-explanatory.\n"
         embed.description += \
-            (f"`{ctx.prefix}school join [school-name]`\n"
+            (f"`{ctx.prefix}school join school-name`\n"
              "This will fuzzy search a list of known schools for which you can register and gain access to."
              " If your school is not listed, please mention one of the team who will rectify.\n\n")
         embed.description += (
@@ -36,23 +39,22 @@ class SchoolGate(commands.Cog):
             "This will leave the school you have been registered with.")
         await ctx.send(embed=embed)
 
-    async def _get_or_create_school_category(
+    async def _get_or_create_school_channel(
             self, guild: discord.Guild, school: str, role: discord.Role
-    ) -> discord.CategoryChannel:
-        all_categories = guild.categories
-        exists = school in [cat.name for cat in all_categories]
+    ) -> discord.TextChannel:
+        all_channels = guild.text_channels
+        exists = school in [chan.name for chan in all_channels]
         if exists:
-            category = [cat for cat in all_categories if cat.name == school][0]
+            channel = [cat for cat in all_channels if cat.name == school][0]
         else:
             overwrites = {
                 guild.default_role: discord.PermissionOverwrite(read_messages=False),
                 guild.me: discord.PermissionOverwrite(read_messages=True),
                 role: discord.PermissionOverwrite(read_messages=True),
             }
-            category = await guild.create_category(name=school, overwrites=overwrites)
-            await self._fill_category(category)
+            channel = await guild.create_text_channel(name=school, overwrites=overwrites)
 
-        return category
+        return channel
 
     async def _get_or_create_school_role(self, guild: discord.Guild, school: str):
         roles = guild.roles
@@ -64,14 +66,6 @@ class SchoolGate(commands.Cog):
 
         return role
 
-    async def _fill_category(self, category: discord.CategoryChannel):
-        text_channels = ["Classroom"]
-        voice_channels = 1
-        for channel in text_channels:
-            await category.create_text_channel(name=channel)
-        for channel in range(voice_channels):
-            await category.create_voice_channel(name=f"Voice {channel}")
-
     async def _grant_student_access(
             self, guild: discord.Guild, student: discord.Member, school: str
     ):
@@ -81,9 +75,10 @@ class SchoolGate(commands.Cog):
             student_role = guild.get_role(student_role)
             if student_role is not None:
                 await student.add_roles(student_role, reason="Granting access to student role")
-        category = await self._get_or_create_school_category(guild, school, role)
-
         await student.add_roles(role, reason="Granting access to school")
+        if len(role.members) < 2:
+            raise NoStudentsException()
+        await self._get_or_create_school_channel(guild, school, role)
 
     async def _send_log_to_channel(self, guild: discord.Guild, student: discord.Member, school: str):
         """Sends log to channel if set, else fails silently"""
@@ -93,6 +88,16 @@ class SchoolGate(commands.Cog):
             return
         else:
             embed = await joined_school_log_embed(student, school)
+            await channel.send(embed=embed)
+
+    async def _send_no_students(self, guild, school):
+        channel = await self.config.guild(guild).log_channel()
+        channel = guild.get_channel(channel)
+        if channel is None:
+            return
+        else:
+            embed = discord.Embed(description=f"`{school}` - Not enough students, did not create channels.",
+                                  color=discord.Color.red())
             await channel.send(embed=embed)
 
     @commands.group(name="school", autohelp=False)
@@ -121,9 +126,11 @@ class SchoolGate(commands.Cog):
                 ctx, length=len(results) + 1, embed=options_embed  # we plus 1 here because the enumeration starts at 1
             )
             school, probability = results[option_chosen]
-            await self._grant_student_access(guild, author, school)
             await self._send_log_to_channel(guild, author, school)
             await ctx.send(f"{author.mention}, welcome! You're now in `{school_name}`.")
+            await self._grant_student_access(guild, author, school) # throws exception
+        except NoStudentsException:
+            await self._send_no_students(guild, school_name)
         except discord.errors.Forbidden as e:
             log.error(f"Tried granting student access, permissions denied to add roles or embed links")
         except discord.errors.NotFound as e:
@@ -162,6 +169,13 @@ class SchoolGate(commands.Cog):
 ██║  ██║╚██████╔╝███████╗███████╗    ███████║███████╗   ██║   
 ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚══════╝    ╚══════╝╚══════╝   ╚═╝"""
         await ctx.send(box(f"{stupid_string}\n\nSet the role that students will recieve to: {role} - {role.id}"))
+
+    @commands.command(name="setcategory")
+    @checks.mod_or_permissions(manage_messages=True)
+    async def _add_category_for_new_classrooms(self, ctx, category: discord.CategoryChannel):
+        """Add category where new classrooms shall be created"""
+        await self.config.guild(ctx.guild).school_category.set(category.id)
+        return await ctx.send(f"👍 Done. New school channels will be created here: `{category}`")
 
     @checks.mod_or_permissions(manage_messages=True)
     @commands.command(name="addschool")
