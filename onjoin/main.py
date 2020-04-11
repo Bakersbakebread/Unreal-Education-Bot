@@ -43,6 +43,7 @@ class SchoolGate(commands.Cog):
             self, guild: discord.Guild, school: str, role: discord.Role
     ) -> discord.TextChannel:
         all_channels = guild.text_channels
+        school = school.replace(" ", "-").lower()
         exists = school in [chan.name for chan in all_channels]
         if exists:
             channel = [cat for cat in all_channels if cat.name == school][0]
